@@ -15,7 +15,7 @@ connectDB()
         throw error;
     });
 
-    app.listen(process.env.PORT || 4567, ()=>{
+    app.listen(process.env.PORT, ()=>{
         console.log(`Server is runing at PORT : ${process.env.PORT}`);
     } );
 })

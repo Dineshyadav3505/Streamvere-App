@@ -3,7 +3,7 @@ class ApiError extends Error {
         statusCode, 
         message ="Kuch to gabdab hai ri baba ",
         errors=[],
-        statck = ""
+        stack = ""
         ) {
             super(message)
             this.statusCode = statusCode
@@ -12,8 +12,8 @@ class ApiError extends Error {
             thid.success = false
             thid.error = errors
 
-            if (statck) {
-                this.stack = statck
+            if (stack) {
+                this.stack = stack
             }
              else{
                 Error.captureStackTrace(this, this.constructor)
