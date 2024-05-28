@@ -5,27 +5,28 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import dotenv from "dotenv"
+
+dotenv.config({
+  path: "./.env"
+});
+
 
 ///// generateAccessAndRefreshToken
 const generateAccessAndRefreshToken = async (userId) => {
   try {
-      // console.log("Finding user by ID:", userId);
+
       const user = await User.findById(userId);
       
       if (!user) {
         throw new ApiError(404, "User not found");
       }
 
-      // console.log("Generating tokens");
       const refreshToken = await user.generateRefreshToken();
       const  accessToken = await user.generateAccessToken();
-      // console.log(refreshToken);
-      // console.log(accessToken);
 
       user.refreshToken = refreshToken;
-      // user.accessToken = accessToken;
 
-      // console.log("Saving user with new refresh token");
       try {
         await user.save({ validateBeforeSave: false });
       } catch (error) {
@@ -118,6 +119,7 @@ const loginUser = asyncHandler(async (req , res)=>{
     httpOnly: true,
     secure:true
   }
+  console.log("logged in user successfully")
 
   
   return res
@@ -171,51 +173,50 @@ const logoutUser = asyncHandler (async(req, res)=>{
 })  
 
 // refreshAccessToken 
-const refreshAccessToken = asyncHandler(async (req, res)=>{
-  const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
-  if(!incomingRefreshToken){
-    throw new ApiError(401,"unauthorized request")
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "Unauthorized request");
   }
 
   try {
-    const decodedToken = jwt.verify(token, "OTUlsdf_GvbjbdfbHYgz_knfgk6fhHkjns244dHgdfkjhHsl23jfGl2sdfujnJ12ghdfJH0")
-  
-    const user = await User.findById(decodedToken?.id)
-  
-    if(!user){
-      throw new ApiError(401,"Invalid Refresh Token")
-    }
-  
-    if(incomingRefreshToken !== user?.refreshToken){
-      throw new ApiError(401,"Refresh token is expired or invalid")
-    }
-  
-    const {accessToken, newRefreshToken} = await generateAccessAndRefreshToken(user._Id)
-  
-    const option = {
-      httpOnly: true,
-      secure : true
-    }
-  
-    return res
-    .status(200)
-    .cookie("accessToken", accessToken, option)
-    .cookie("refreshToken", newRefreshToken, option)
-    .json(
-      new ApiResponse(
-        200,
-        {
-          accessToken, refreshToken: newRefreshToken
-        },
-        "Successfulley generate refresh token  "
-      )
-    )
-  } catch (error) {
-    throw new ApiError(401, error?.message || "Invalid refresh token")
-  }
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
 
-})
+    const user = await User.findById(decodedToken?._id);
+
+    if (!user) {
+      throw new ApiError(401, "Invalid refresh token");
+    }
+
+    if (incomingRefreshToken !== user?.refreshToken) {
+      throw new ApiError(401, "Refresh token is expired or used");
+    }
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+    };
+
+    const { accessToken, newRefreshToken } = await generateAccessAndRefereshTokens(
+      user._id
+    );
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
+      .json(
+        new ApiResponse(200, { accessToken, refreshToken: newRefreshToken }, "Access token refreshed")
+      );
+  } catch (error) {
+    throw new ApiError(401, error?.message || "Invalid refresh token");
+  }
+});
 
 //changeCurrentPassword
 const changeCurrentPassword = asyncHandler(async(req, res)=>{
@@ -293,8 +294,8 @@ const updateAccountDetais = asyncHandler(async (req, res,) =>{
 })
 
 //updateAvatarImage
-const updateAvatarImage = asyncHandler(async (req, res) =>{
-  const avatarLocalPath = req.file?.avatar[0]?.path;
+const updateAvatarImage = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
 
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file is required");
@@ -307,19 +308,17 @@ const updateAvatarImage = asyncHandler(async (req, res) =>{
   }
 
   const user = await User.findByIdAndUpdate(
-    req.user?.id, 
-    {
-      $set:{
-        avatar: avatar.url
-      }
-    },
-    {new : true}
-  ).select("-password")
+    req.user.id,
+    { $set: { avatar: avatar.url } },
+    { new: true, select: "-password" }
+  );
 
-  return res
-  .status(200)
-  .json( new ApiResponse(200, user, "Avatar updated successfully"))
-})
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res.status(200).json(new ApiResponse(200, user, "Avatar updated successfully"));
+});
 
 //update Cover Image 
 const updateCoverImage = asyncHandler(async (req, res) =>{
@@ -427,10 +426,8 @@ const getUserChannelProfile = asyncHandler(async (req, res)=>{
 
 //get watcher history
 const getWatchHistory = asyncHandler(async (req, res) => {
-  console.log("im am working ")
   const user = await User.aggregate([
     
-
     {
       $match:{
         _id: new mongoose.Types.ObjectId(req.user._id) 
