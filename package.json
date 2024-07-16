@@ -1,9 +1,9 @@
 {
-  "name": "youtube_backend",
+  "name": "Stream",
   "version": "1.0.0",
-  "description": "Youtube Backend ",
+  "description": "Stream-vere",
   "type": "module",
-  "main": "index.j s",
+  "main": "index.js",
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon  src/index.js"
